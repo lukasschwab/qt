@@ -1,12 +1,15 @@
-demo:
-	echo 'This will torrent Sintel.'
+all: build
 
 build:
-	go build main.go
+	go build -o qt
 
-run:
-	go run main.go
+demo: build
+	# Torrenting Sintel.
+	./qt
+
+# run: build
+# 	./qt
 
 clean:
+	rm -f qt
 	rm -rf Sintel
-	

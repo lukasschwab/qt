@@ -9,6 +9,4 @@ Obviously there's existing code cleanliness stuff to take care of. I'd like to m
 Also, there are some minor reliability issues––hanging before showing the UI! that I want to take care of.
 
 + Show UI before fetching torrent metadata.
-+ Show download speeds timeseries.
 + List files in the torrent in a prettier format.
-+ Estimated arrival time.
