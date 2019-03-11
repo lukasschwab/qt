@@ -1,7 +1,7 @@
 package main
 
 import (
-	"encoding/json"
+	// "encoding/json"
 	"fmt"
 	"log"
 	"time"
@@ -11,7 +11,9 @@ import (
 	"github.com/gizak/termui/widgets"
 )
 
-const magnet = "magnet:?xt=urn:btih:08ada5a7a6183aae1e09d831df6748d566095a10&dn=Sintel&tr=udp%3A%2F%2Fexplodie.org%3A6969&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Ftracker.empire-js.us%3A1337&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337&tr=wss%3A%2F%2Ftracker.btorrent.xyz&tr=wss%3A%2F%2Ftracker.fastcast.nz&tr=wss%3A%2F%2Ftracker.openwebtorrent.com&ws=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2F&xs=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2Fsintel.torrent"
+// const magnet = "magnet:?xt=urn:btih:08ada5a7a6183aae1e09d831df6748d566095a10&dn=Sintel&tr=udp%3A%2F%2Fexplodie.org%3A6969&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Ftracker.empire-js.us%3A1337&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337&tr=wss%3A%2F%2Ftracker.btorrent.xyz&tr=wss%3A%2F%2Ftracker.fastcast.nz&tr=wss%3A%2F%2Ftracker.openwebtorrent.com&ws=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2F&xs=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2Fsintel.torrent"
+
+const magnet = "magnet:?xt=urn:btih:50247341e9c86396f26468c80730a494768696e2&dn=There.Will.Be.Blood.2007.1080p.BluRay.x264.anoXmous&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969&tr=udp%3A%2F%2Fzer0day.ch%3A1337&tr=udp%3A%2F%2Fopen.demonii.com%3A1337&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Fexodus.desync.com%3A6969" // THERE WILL BE BLOOD
 
 func prepTorrent(magnet string) (*torrent.Client, *torrent.Torrent) {
 	c, _ := torrent.NewClient(nil)
@@ -22,10 +24,13 @@ func prepTorrent(magnet string) (*torrent.Client, *torrent.Torrent) {
 }
 
 func getTorrentParagraph(t *torrent.Torrent) *widgets.Paragraph {
-	out := widgets.NewParagraph()
-	r, _ := json.MarshalIndent(t.Info(), "", "  ")
-	out.Text = string(r)
-	return out
+  info := t.Info()
+  out := widgets.NewParagraph()
+  out.Text = fmt.Sprintf("Torrent name: %v\nLength: %d", info.Name, info.Length)
+  for i, fi := range info.Files {
+    out.Text += fmt.Sprintf("\n%d. %v [%d] ", i, fi.Path, fi.Length)
+  }
+  return out
 }
 
 func main() {
@@ -48,9 +53,9 @@ func main() {
 	g.Percent = 0
 	gaugeRow := ui.NewRow(1.0/3, g)
 
-	updateGauge := func() {
-		g.Percent, g.Label = getStatsString(tor)
-	}
+	// updateGauge := func() {
+	// 	g.Percent, g.Label = getStatsString(tor)
+	// }
 
 	// stats := widgets.NewParagraph()
 	// _, stats.Text = getStatsString(tor)
@@ -71,18 +76,18 @@ func main() {
 		fromProgress: int64(0),
 	}
 
-	updatePlot := func() {
-		read := tor.Stats().BytesReadUsefulData
-		read64 := read.Int64()
-		appendToPlot(p1, 0, pd.getUpdate(read64))
-		appendToPlot(p1, 1, func(ns []float64) float64 {
-			s := float64(0)
-			for _, n := range ns {
-				s += n
-			}
-			return float64(s) / float64(len(ns))
-		}(p1.Data[0]))
-	}
+	// updatePlot := func() {
+	// 	read := tor.Stats().BytesReadUsefulData
+	// 	read64 := read.Int64()
+	// 	appendToPlot(p1, 0, pd.getUpdate(read64))
+	// 	appendToPlot(p1, 1, func(ns []float64) float64 {
+	// 		s := float64(0)
+	// 		for _, n := range ns {
+	// 			s += n
+	// 		}
+	// 		return float64(s) / float64(len(ns))
+	// 	}(p1.Data[0]))
+	// }
 
 	grid := ui.NewGrid()
 	termWidth, termHeight := ui.TerminalDimensions()
@@ -109,8 +114,19 @@ func main() {
 				g.Percent++
 			}
 		case <-ticker:
-			updateGauge()
-			updatePlot()
+			// updateGauge()
+      g.Percent, g.Label = getStatsString(tor)
+			// updatePlot()
+      read := tor.Stats().BytesReadUsefulData
+  		read64 := read.Int64()
+  		appendToPlot(p1, 0, pd.getUpdate(read64))
+  		appendToPlot(p1, 1, func(ns []float64) float64 {
+  			s := float64(0)
+  			for _, n := range ns {
+  				s += n
+  			}
+  			return float64(s) / float64(len(ns))
+  		}(p1.Data[0]))
 		}
 		ui.Render(grid)
 	}

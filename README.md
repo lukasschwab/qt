@@ -10,4 +10,5 @@ Also, there are some minor reliability issues––hanging before showing the UI
 
 + Show UI before fetching torrent metadata.
 + Show download speeds timeseries.
-+ List files in the torrent.
++ List files in the torrent in a prettier format.
++ Estimated arrival time.
