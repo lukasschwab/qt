@@ -46,7 +46,6 @@ func main() {
 
 	g := widgets.NewGauge()
 	g.Percent = 0
-	g.Label = "ProgresS"
 	gaugeRow := ui.NewRow(1.0/3, g)
 
   stats := widgets.NewParagraph()
@@ -82,6 +81,7 @@ func main() {
     case <-ticker:
       // Update the bar chart with progress.
       g.Percent, stats.Text = getStatsString(tor)
+      g.Label = stats.Text
     }
     ui.Render(grid)
   }
@@ -89,7 +89,8 @@ func main() {
 
 func getStatsString(t *torrent.Torrent) (int, string) {
   read := t.Stats().BytesReadUsefulData
-  floatPercentage := 100 * (read.Int64() / t.Length())
-  s := fmt.Sprintf("%d/%d: %d%%", read.Int64(), t.Length(), floatPercentage)
+  read64 := read.Int64()
+  floatPercentage := float64(100) * (float64(read64) / float64(t.Length()))
+  s := fmt.Sprintf("Downloaded %d/%d: %f%%", read.Int64(), t.Length(), floatPercentage)
   return int(floatPercentage), s
 }
