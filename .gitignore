@@ -1,4 +1,10 @@
+# Test utils
+testmagnets
+
+# Test torrent outputs
 *torrent*
 Sintel
 There*
+
+# Compiled binaries
 qt

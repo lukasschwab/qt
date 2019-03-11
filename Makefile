@@ -13,3 +13,4 @@ demo: build
 clean:
 	rm -f qt
 	rm -rf Sintel
+	rm -rf There*
