@@ -15,22 +15,25 @@ import (
 
 const magnet = "magnet:?xt=urn:btih:50247341e9c86396f26468c80730a494768696e2&dn=There.Will.Be.Blood.2007.1080p.BluRay.x264.anoXmous&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969&tr=udp%3A%2F%2Fzer0day.ch%3A1337&tr=udp%3A%2F%2Fopen.demonii.com%3A1337&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Fexodus.desync.com%3A6969" // THERE WILL BE BLOOD
 
+const quantum = time.Second / 3
+
 func prepTorrent(magnet string) (*torrent.Client, *torrent.Torrent) {
 	c, _ := torrent.NewClient(nil)
-	// NOTE: remember to defer c.Close()
 	t, _ := c.AddMagnet(magnet)
 	<-t.GotInfo()
 	return c, t
 }
 
 func getTorrentParagraph(t *torrent.Torrent) *widgets.Paragraph {
-  info := t.Info()
-  out := widgets.NewParagraph()
-  out.Text = fmt.Sprintf("Torrent name: %v\nLength: %d", info.Name, info.Length)
-  for i, fi := range info.Files {
-    out.Text += fmt.Sprintf("\n%d. %v [%d] ", i, fi.Path, fi.Length)
-  }
-  return out
+	info := t.Info()
+	out := widgets.NewParagraph()
+  out.Title = "Torrent Info"
+	out.Text = fmt.Sprintf("Torrent name: %v\nLength: %d\nFiles:", info.Name, info.Length)
+	// TODO: list files in separate widget.
+	for i, fi := range info.Files {
+		out.Text += fmt.Sprintf("\n%d. %v [%d] ", i, fi.Path, fi.Length)
+	}
+	return out
 }
 
 func main() {
@@ -40,31 +43,23 @@ func main() {
 	defer ui.Close()
 
 	// TODO: load placeholder UI.
-
 	// TODO: get user input for magnet link.
 
 	cli, tor := prepTorrent(magnet)
 	defer cli.Close()
 
 	textRow := ui.NewRow(1.0/3, getTorrentParagraph(tor))
-	// TODO: show list of torrent files.
 
 	g := widgets.NewGauge()
 	g.Percent = 0
 	gaugeRow := ui.NewRow(1.0/3, g)
 
-	// updateGauge := func() {
-	// 	g.Percent, g.Label = getStatsString(tor)
-	// }
-
-	// stats := widgets.NewParagraph()
-	// _, stats.Text = getStatsString(tor)
 	p1 := widgets.NewPlot()
-	p1.Title = "Download speed"
+	p1.Title = "Download Speed"
 	p1.Marker = widgets.MarkerDot
 	p1.Data = [][]float64{
-		[]float64{0},
-		[]float64{0},
+		[]float64{0}, // Last observed download speed datum.
+		[]float64{0}, // Average download speed from last period.
 	}
 	p1.AxesColor = ui.ColorWhite
 	p1.LineColors[0] = ui.ColorYellow
@@ -76,18 +71,32 @@ func main() {
 		fromProgress: int64(0),
 	}
 
-	// updatePlot := func() {
-	// 	read := tor.Stats().BytesReadUsefulData
-	// 	read64 := read.Int64()
-	// 	appendToPlot(p1, 0, pd.getUpdate(read64))
-	// 	appendToPlot(p1, 1, func(ns []float64) float64 {
-	// 		s := float64(0)
-	// 		for _, n := range ns {
-	// 			s += n
-	// 		}
-	// 		return float64(s) / float64(len(ns))
-	// 	}(p1.Data[0]))
-	// }
+	updateGauge := func() {
+		g.Percent, g.Label = getStatsString(tor)
+	}
+
+	updatePlot := func() {
+		read := tor.Stats().BytesReadUsefulData
+		read64 := read.Int64()
+		appendToPlot(p1, 0, pd.getUpdate(read64))
+		appendToPlot(p1, 1, func(ns []float64) float64 {
+			s := float64(0)
+			for _, n := range ns {
+				s += n
+			}
+			return float64(s) / float64(len(ns))
+		}(p1.Data[0]))
+		// Update title with ETA.
+		p1.Title = fmt.Sprintf("Download Speed • ETA: %v", func() string {
+			toRead := tor.Length() - read64
+			lastRate := int64(p1.Data[1][len(p1.Data[1])-1])
+			if lastRate == 0 {
+				return "∞"
+			}
+			quantaRemaining := toRead / lastRate
+			return time.Duration(quantum.Nanoseconds() * quantaRemaining).Round(time.Second).String()
+		}())
+	}
 
 	grid := ui.NewGrid()
 	termWidth, termHeight := ui.TerminalDimensions()
@@ -97,7 +106,7 @@ func main() {
 
 	uiEvents := ui.PollEvents()
 	// FIXME: use a custom wrapper for the torrent for stats updates.
-	ticker := time.NewTicker(time.Second / 3).C
+	ticker := time.NewTicker(quantum).C
 	tor.DownloadAll()
 
 	for {
@@ -114,19 +123,8 @@ func main() {
 				g.Percent++
 			}
 		case <-ticker:
-			// updateGauge()
-      g.Percent, g.Label = getStatsString(tor)
-			// updatePlot()
-      read := tor.Stats().BytesReadUsefulData
-  		read64 := read.Int64()
-  		appendToPlot(p1, 0, pd.getUpdate(read64))
-  		appendToPlot(p1, 1, func(ns []float64) float64 {
-  			s := float64(0)
-  			for _, n := range ns {
-  				s += n
-  			}
-  			return float64(s) / float64(len(ns))
-  		}(p1.Data[0]))
+			updateGauge()
+			updatePlot()
 		}
 		ui.Render(grid)
 	}
