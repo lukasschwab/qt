@@ -48,22 +48,52 @@ func main() {
 	g.Percent = 0
 	gaugeRow := ui.NewRow(1.0/3, g)
 
-	stats := widgets.NewParagraph()
-	_, stats.Text = getStatsString(tor)
-	statsRow := ui.NewRow(1.0/3, stats)
+	updateGauge := func() {
+		g.Percent, g.Label = getStatsString(tor)
+	}
+
+	// stats := widgets.NewParagraph()
+	// _, stats.Text = getStatsString(tor)
+	p1 := widgets.NewPlot()
+	p1.Title = "Download speed"
+	p1.Marker = widgets.MarkerDot
+	p1.Data = [][]float64{
+		[]float64{0},
+		[]float64{0},
+	}
+	p1.AxesColor = ui.ColorWhite
+	p1.LineColors[0] = ui.ColorYellow
+	p1.DrawDirection = widgets.DrawRight
+	statsRow := ui.NewRow(1.0/3, p1)
+
+	pd := &progressDelta{
+		fromMoment:   time.Now(),
+		fromProgress: int64(0),
+	}
+
+	updatePlot := func() {
+		read := tor.Stats().BytesReadUsefulData
+		read64 := read.Int64()
+		appendToPlot(p1, 0, pd.getUpdate(read64))
+		appendToPlot(p1, 1, func(ns []float64) float64 {
+			s := float64(0)
+			for _, n := range ns {
+				s += n
+			}
+			return float64(s) / float64(len(ns))
+		}(p1.Data[0]))
+	}
 
 	grid := ui.NewGrid()
 	termWidth, termHeight := ui.TerminalDimensions()
 	grid.SetRect(0, 0, termWidth, termHeight)
 	grid.Set(textRow, gaugeRow, statsRow)
-
 	ui.Render(grid)
-	// ui.Render(g)
-
-	tor.DownloadAll()
 
 	uiEvents := ui.PollEvents()
-	ticker := time.NewTicker(time.Second).C // FIXME: use a custom wrapper for the torrent for stats updates.
+	// FIXME: use a custom wrapper for the torrent for stats updates.
+	ticker := time.NewTicker(time.Second / 3).C
+	tor.DownloadAll()
 
 	for {
 		select {
@@ -79,9 +109,8 @@ func main() {
 				g.Percent++
 			}
 		case <-ticker:
-			// Update the bar chart with progress.
-			g.Percent, stats.Text = getStatsString(tor)
-			g.Label = stats.Text
+			updateGauge()
+			updatePlot()
 		}
 		ui.Render(grid)
 	}
@@ -93,4 +122,27 @@ func getStatsString(t *torrent.Torrent) (int, string) {
 	floatPercentage := float64(100) * (float64(read64) / float64(t.Length()))
 	s := fmt.Sprintf("Downloaded %d/%d: %f%%", read.Int64(), t.Length(), floatPercentage)
 	return int(floatPercentage), s
+}
+
+type progressDelta struct {
+	fromMoment   time.Time
+	fromProgress int64
+}
+
+func (pd *progressDelta) getUpdate(newProgress int64) float64 {
+	// Return bytes per second for last period.
+	lastFromMoment := pd.fromMoment
+	pd.fromMoment = time.Now()
+	elapsedSeconds := time.Since(lastFromMoment).Seconds()
+	lastFromProgress := pd.fromProgress
+	pd.fromProgress = newProgress
+	return float64(newProgress-lastFromProgress) / elapsedSeconds
+}
+
+func appendToPlot(plt *widgets.Plot, si int, datum float64) {
+	plt.Data[si] = append(plt.Data[si], datum)
+	newLen := len(plt.Data[si])
+	if len(plt.Data[si]) > plt.Inner.Dx()-5 {
+		plt.Data[si] = plt.Data[si][newLen-(plt.Inner.Dx()-5):]
+	}
 }
