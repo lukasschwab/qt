@@ -42,18 +42,39 @@ func getTorrentParagraph(t *torrent.Torrent) *widgets.Paragraph {
 	info := t.Info()
 	out := widgets.NewParagraph()
 	out.Title = "Torrent Info"
-	out.Text = fmt.Sprintf("Torrent name: %v\nLength: %d\nFiles:", info.Name, info.Length)
+	out.Text = fmt.Sprintf("Torrent name: %v\nLength: %d ", info.Name, info.Length)
 	return out
 }
 
-func getTorrentFilesList(t *torrent.Torrent) *widgets.List {
-	// NOTE: should this be a table?
-	out := widgets.NewList()
+func getTorrentFilesList(t *torrent.Torrent) *widgets.Table {
+	// TODO: table headers
+	// TODO: better filenames (show extensions)
+	out := widgets.NewTable()
 	out.Title = "Files"
+	out.RowSeparator = false
+	out.TextAlignment = ui.AlignRight
 	files := t.Info().Files
-	out.Rows = make([]string, len(files))
+	out.Rows = make([][]string, len(files))
 	for i, fi := range files {
-		out.Rows[i] = fmt.Sprintf("%v: %d", fi.Path, fi.Length)
+		out.Rows[i] = []string{
+			fmt.Sprintf("%v ", fi.Path),
+			fmt.Sprintf("%d ", fi.Length),
+		}
+	}
+
+	out.ColumnResizer = func() {
+		width := out.Inner.Dx()
+		maxNumsWidth := 0
+		for _, row := range out.Rows {
+			numLen := len(row[1])
+			if numLen > maxNumsWidth {
+				maxNumsWidth = numLen
+			}
+		}
+		out.ColumnWidths = []int{
+			width - maxNumsWidth - 1, // Make space for the divider.
+			maxNumsWidth,
+		}
 	}
 	return out
 }
@@ -75,11 +96,11 @@ func main() {
 	cli, tor := prepTorrent(magnet)
 	defer cli.Close()
 
-	textRow := ui.NewRow(1.0/3, ui.NewCol(0.5, getTorrentParagraph(tor)), ui.NewCol(0.5, getTorrentFilesList(tor)))
+	textRow := ui.NewRow(0.25, ui.NewCol(0.5, getTorrentParagraph(tor)), ui.NewCol(0.5, getTorrentFilesList(tor)))
 
 	g := widgets.NewGauge()
 	g.Percent = 0
-	gaugeRow := ui.NewRow(1.0/3, g)
+	gaugeRow := ui.NewRow(0.25, g)
 
 	p1 := widgets.NewPlot()
 	p1.Title = "Download Speed"
@@ -91,7 +112,7 @@ func main() {
 	p1.AxesColor = ui.ColorWhite
 	p1.LineColors[0] = ui.ColorYellow
 	p1.DrawDirection = widgets.DrawRight
-	statsRow := ui.NewRow(1.0/3, p1)
+	statsRow := ui.NewRow(0.5, p1)
 
 	pd := &progressDelta{
 		fromMoment:   time.Now(),
