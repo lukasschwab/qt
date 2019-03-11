@@ -43,9 +43,17 @@ func getTorrentParagraph(t *torrent.Torrent) *widgets.Paragraph {
 	out := widgets.NewParagraph()
 	out.Title = "Torrent Info"
 	out.Text = fmt.Sprintf("Torrent name: %v\nLength: %d\nFiles:", info.Name, info.Length)
-	// TODO: list files in separate widget.
-	for i, fi := range info.Files {
-		out.Text += fmt.Sprintf("\n%d. %v [%d] ", i, fi.Path, fi.Length)
+	return out
+}
+
+func getTorrentFilesList(t *torrent.Torrent) *widgets.List {
+	// NOTE: should this be a table?
+	out := widgets.NewList()
+	out.Title = "Files"
+	files := t.Info().Files
+	out.Rows = make([]string, len(files))
+	for i, fi := range files {
+		out.Rows[i] = fmt.Sprintf("%v: %d", fi.Path, fi.Length)
 	}
 	return out
 }
@@ -67,7 +75,7 @@ func main() {
 	cli, tor := prepTorrent(magnet)
 	defer cli.Close()
 
-	textRow := ui.NewRow(1.0/3, getTorrentParagraph(tor))
+	textRow := ui.NewRow(1.0/3, ui.NewCol(0.5, getTorrentParagraph(tor)), ui.NewCol(0.5, getTorrentFilesList(tor)))
 
 	g := widgets.NewGauge()
 	g.Percent = 0
