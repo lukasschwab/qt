@@ -10,3 +10,8 @@ Obviously there's existing code cleanliness stuff to take care of. I'd like to m
 + List files in the torrent in a prettier format.
 + Nagging terminal input consumption problem.
 + Easy build to a universally usable command. godo?
+
+## To-do
+
++ Gif demo
++ Lots of cleanup
