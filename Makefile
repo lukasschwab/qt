@@ -12,5 +12,7 @@ demo: build
 
 clean:
 	rm -f qt
+	# Removing test torrent leftovers.
+	rm -f .torrent*
 	rm -rf Sintel
 	rm -rf There*
