@@ -13,11 +13,16 @@ import (
 	"github.com/gizak/termui/widgets"
 )
 
+/* CONSTS */
+
 // sintelMagnet is
 const sintelMagnet = "magnet:?xt=urn:btih:08ada5a7a6183aae1e09d831df6748d566095a10&dn=Sintel&tr=udp%3A%2F%2Fexplodie.org%3A6969&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Ftracker.empire-js.us%3A1337&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337&tr=wss%3A%2F%2Ftracker.btorrent.xyz&tr=wss%3A%2F%2Ftracker.fastcast.nz&tr=wss%3A%2F%2Ftracker.openwebtorrent.com&ws=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2F&xs=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2Fsintel.torrent"
 
 // A quantum is the duration between UI progress updates.
 const quantum = time.Second / 3
+
+
+/* TORRENT UTILS */
 
 // getMagnet prompts the user to input a magnet link and reads the user input if
 // no magnet link is provided as a command-line argument.
@@ -40,6 +45,28 @@ func prepTorrent(magnet string) (*torrent.Client, *torrent.Torrent) {
 	return c, t
 }
 
+
+/* UI CONTENT GENERATORS & UPDATERS */
+
+// A progressTracker is a torrent download state; it records the last-processed
+// moment and the progress at that moment.
+type progressTracker struct {
+	fromMoment   time.Time
+	fromProgress int64
+}
+
+// getSpeedUpdate processes progress since PD was last updated, updates PD, and
+// returns the updated download speed.
+func (pd *progressTracker) getSpeedUpdate(newProgress int64) float64 {
+	// Return bytes per second for last period.
+	lastFromMoment := pd.fromMoment
+	pd.fromMoment = time.Now()
+	elapsedSeconds := time.Since(lastFromMoment).Seconds()
+	lastFromProgress := pd.fromProgress
+	pd.fromProgress = newProgress
+	return float64(newProgress-lastFromProgress) / elapsedSeconds
+}
+
 // getTorrentDescription generates the torrent info text box contents for the UI.
 func getTorrentDescription(t *torrent.Torrent) *widgets.Paragraph {
 	info := t.Info()
@@ -51,8 +78,7 @@ func getTorrentDescription(t *torrent.Torrent) *widgets.Paragraph {
 
 // getTorrentFilesList generates the torrent files table for the UI.
 func getTorrentFilesList(t *torrent.Torrent) *widgets.Table {
-	// TODO: table headers
-	// TODO: better filenames (show extensions)
+	// TODO: table headers.
 	out := widgets.NewTable()
 	out.Title = "Files"
 	out.RowSeparator = false
@@ -92,6 +118,20 @@ func getProgressGaugeLabel(t *torrent.Torrent) (int, string) {
 	return int(floatPercentage), s
 }
 
+// rotateIntoPlot appends the datum to the SIth series in the plot, and rotates
+// previous values out of the plot if the resulting series length is longer than
+// the plot width.
+func rotateIntoPlot(plt *widgets.Plot, si int, datum float64) {
+	plt.Data[si] = append(plt.Data[si], datum)
+	newLen := len(plt.Data[si])
+	if len(plt.Data[si]) > plt.Inner.Dx()-5 {
+		plt.Data[si] = plt.Data[si][newLen-(plt.Inner.Dx()-5):]
+	}
+}
+
+
+/* INTERACTION AND LOOP */
+
 func main() {
 	var magnet string
 	if len(os.Args) < 2 {
@@ -123,46 +163,46 @@ func main() {
 	g := widgets.NewGauge()
 	g.Percent = 0
 	gaugeRow := ui.NewRow(0.25, g)
-	updateGauge := func() {
+	updateGauge := func() { // TODO: refactor out updaters.
 		g.Percent, g.Label = getProgressGaugeLabel(tor)
 	}
 
 	// Add download speed plot.
-	p1 := widgets.NewPlot()
-	p1.Title = "Download Speed"
-	p1.Marker = widgets.MarkerDot
-	p1.Data = [][]float64{
+	progplot := widgets.NewPlot()
+	progplot.Title = "Download Speed"
+	progplot.Marker = widgets.MarkerDot
+	progplot.Data = [][]float64{
 		[]float64{0}, // Last observed download speed datum.
 		[]float64{0}, // Average download speed from last period.
 	}
-	p1.AxesColor = ui.ColorWhite
-	p1.LineColors[0] = ui.ColorYellow
-	p1.DrawDirection = widgets.DrawRight
-	statsRow := ui.NewRow(0.5, p1)
+	progplot.AxesColor = ui.ColorWhite
+	progplot.LineColors[0] = ui.ColorYellow
+	progplot.DrawDirection = widgets.DrawRight
+	statsRow := ui.NewRow(0.5, progplot)
 	pd := &progressTracker{
 		fromMoment:   time.Now(),
 		fromProgress: int64(0),
 	}
-	updatePlot := func() {
+	updatePlot := func() { // TODO: refactor out updaters.
 		read := tor.Stats().BytesReadUsefulData
 		read64 := read.Int64()
-		rotateIntoPlot(p1, 0, math.RoundToEven(pd.getSpeedUpdate(read64)/1000))
-		rotateIntoPlot(p1, 1, func(ns []float64) float64 {
+		rotateIntoPlot(progplot, 0, math.RoundToEven(pd.getSpeedUpdate(read64)/1000))
+		rotateIntoPlot(progplot, 1, func(ns []float64) float64 {
 			s := float64(0)
 			for _, n := range ns {
 				s += n
 			}
 			return math.RoundToEven(float64(s) / float64(len(ns)))
-		}(p1.Data[0]))
-		// Update title with ETA.
-		p1.Title = fmt.Sprintf("Download Speed • ETA: %v", func() string {
+		}(progplot.Data[0]))
+		progplot.Title = fmt.Sprintf("Download Speed • ETA: %v", func() string {
 			toRead := tor.Length() - read64
-			lastRate := int64(p1.Data[1][len(p1.Data[1])-1])
+			lastRate := int64(progplot.Data[1][len(progplot.Data[1])-1])
 			if lastRate == 0 {
 				return "∞"
 			}
 			quantaRemaining := toRead / (lastRate * 1000)
-			return time.Duration(quantum.Nanoseconds() * quantaRemaining).Round(time.Second).String()
+      timeRemaining := time.Duration(quantum.Nanoseconds() * quantaRemaining)
+			return timeRemaining.Round(time.Second).String()
 		}())
 	}
 
@@ -195,35 +235,5 @@ func main() {
 			updatePlot()
 		}
 		ui.Render(grid)
-	}
-}
-
-// A progressTracker is a torrent download state; it records the last-processed
-// moment and the progress at that moment.
-type progressTracker struct {
-	fromMoment   time.Time
-	fromProgress int64
-}
-
-// getSpeedUpdate processes progress since PD was last updated, updates PD, and
-// returns the updated download speed.
-func (pd *progressTracker) getSpeedUpdate(newProgress int64) float64 {
-	// Return bytes per second for last period.
-	lastFromMoment := pd.fromMoment
-	pd.fromMoment = time.Now()
-	elapsedSeconds := time.Since(lastFromMoment).Seconds()
-	lastFromProgress := pd.fromProgress
-	pd.fromProgress = newProgress
-	return float64(newProgress-lastFromProgress) / elapsedSeconds
-}
-
-// rotateIntoPlot appends the datum to the SIth series in the plot, and rotates
-// previous values out of the plot if the resulting series length is longer than
-// the plot width.
-func rotateIntoPlot(plt *widgets.Plot, si int, datum float64) {
-	plt.Data[si] = append(plt.Data[si], datum)
-	newLen := len(plt.Data[si])
-	if len(plt.Data[si]) > plt.Inner.Dx()-5 {
-		plt.Data[si] = plt.Data[si][newLen-(plt.Inner.Dx()-5):]
 	}
 }
