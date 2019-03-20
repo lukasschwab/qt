@@ -1,4 +1,7 @@
-all: build
+all: run
+
+run:
+	go run *.go
 
 build:
 	go build -o qt
@@ -6,9 +9,6 @@ build:
 demo: build
 	# Torrenting Sintel.
 	./qt
-
-# run: build
-# 	./qt
 
 clean:
 	rm -f qt

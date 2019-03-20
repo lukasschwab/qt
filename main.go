@@ -15,12 +15,8 @@ import (
 
 /* CONSTS */
 
-// sintelMagnet is
-const sintelMagnet = "magnet:?xt=urn:btih:08ada5a7a6183aae1e09d831df6748d566095a10&dn=Sintel&tr=udp%3A%2F%2Fexplodie.org%3A6969&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Ftracker.empire-js.us%3A1337&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337&tr=wss%3A%2F%2Ftracker.btorrent.xyz&tr=wss%3A%2F%2Ftracker.fastcast.nz&tr=wss%3A%2F%2Ftracker.openwebtorrent.com&ws=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2F&xs=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2Fsintel.torrent"
-
 // A quantum is the duration between UI progress updates.
 const quantum = time.Second / 3
-
 
 /* TORRENT UTILS */
 
@@ -44,7 +40,6 @@ func prepTorrent(magnet string) (*torrent.Client, *torrent.Torrent) {
 	<-t.GotInfo()
 	return c, t
 }
-
 
 /* UI CONTENT GENERATORS & UPDATERS */
 
@@ -114,7 +109,11 @@ func getProgressGaugeLabel(t *torrent.Torrent) (int, string) {
 	read := t.Stats().BytesReadUsefulData
 	read64 := read.Int64()
 	floatPercentage := float64(100) * (float64(read64) / float64(t.Length()))
-	s := fmt.Sprintf("Downloaded %d/%d: %f%%", read.Int64(), t.Length(), floatPercentage)
+	s := fmt.Sprintf("Downloaded %d/%d: %f%%",
+		read.Int64(),
+		t.Length(),
+		floatPercentage,
+	)
 	return int(floatPercentage), s
 }
 
@@ -128,7 +127,6 @@ func rotateIntoPlot(plt *widgets.Plot, si int, datum float64) {
 		plt.Data[si] = plt.Data[si][newLen-(plt.Inner.Dx()-5):]
 	}
 }
-
 
 /* INTERACTION AND LOOP */
 
@@ -201,7 +199,7 @@ func main() {
 				return "∞"
 			}
 			quantaRemaining := toRead / (lastRate * 1000)
-      timeRemaining := time.Duration(quantum.Nanoseconds() * quantaRemaining)
+			timeRemaining := time.Duration(quantum.Nanoseconds() * quantaRemaining)
 			return timeRemaining.Round(time.Second).String()
 		}())
 	}
