@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"time"
 
@@ -124,13 +125,13 @@ func main() {
 	updatePlot := func() {
 		read := tor.Stats().BytesReadUsefulData
 		read64 := read.Int64()
-		appendToPlot(p1, 0, pd.getUpdate(read64))
+		appendToPlot(p1, 0, math.RoundToEven(pd.getUpdate(read64)/1000))
 		appendToPlot(p1, 1, func(ns []float64) float64 {
 			s := float64(0)
 			for _, n := range ns {
 				s += n
 			}
-			return float64(s) / float64(len(ns))
+			return math.RoundToEven(float64(s) / float64(len(ns)))
 		}(p1.Data[0]))
 		// Update title with ETA.
 		p1.Title = fmt.Sprintf("Download Speed • ETA: %v", func() string {
@@ -139,7 +140,7 @@ func main() {
 			if lastRate == 0 {
 				return "∞"
 			}
-			quantaRemaining := toRead / lastRate
+			quantaRemaining := toRead / (lastRate * 1000)
 			return time.Duration(quantum.Nanoseconds() * quantaRemaining).Round(time.Second).String()
 		}())
 	}
