@@ -1,7 +1,6 @@
 package main
 
 import (
-	// "encoding/json"
 	"bufio"
 	"fmt"
 	"log"
@@ -14,30 +13,35 @@ import (
 	"github.com/gizak/termui/widgets"
 )
 
-const sintel = "magnet:?xt=urn:btih:08ada5a7a6183aae1e09d831df6748d566095a10&dn=Sintel&tr=udp%3A%2F%2Fexplodie.org%3A6969&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Ftracker.empire-js.us%3A1337&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337&tr=wss%3A%2F%2Ftracker.btorrent.xyz&tr=wss%3A%2F%2Ftracker.fastcast.nz&tr=wss%3A%2F%2Ftracker.openwebtorrent.com&ws=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2F&xs=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2Fsintel.torrent"
+// sintelMagnet is
+const sintelMagnet = "magnet:?xt=urn:btih:08ada5a7a6183aae1e09d831df6748d566095a10&dn=Sintel&tr=udp%3A%2F%2Fexplodie.org%3A6969&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Ftracker.empire-js.us%3A1337&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337&tr=wss%3A%2F%2Ftracker.btorrent.xyz&tr=wss%3A%2F%2Ftracker.fastcast.nz&tr=wss%3A%2F%2Ftracker.openwebtorrent.com&ws=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2F&xs=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2Fsintel.torrent"
 
+// A quantum is the duration between UI progress updates.
 const quantum = time.Second / 3
 
+// getMagnet prompts the user to input a magnet link and reads the user input if
+// no magnet link is provided as a command-line argument.
 func getMagnet() string {
 	scanner := bufio.NewScanner(os.Stdin)
-	// reader := bufio.NewReader(os.Stdin)
 	fmt.Print("Enter a magnet link: ")
 	scanner.Scan()
 	magnet := scanner.Text()
-	if len(magnet) == 0 {
-		return sintel
-	}
 	return magnet
 }
 
+// prepTorrent creates a torrent client and synchronously fetches the torrent
+// info.
 func prepTorrent(magnet string) (*torrent.Client, *torrent.Torrent) {
+	// TODO: handle these errors. Incl. bad magnet link.
 	c, _ := torrent.NewClient(nil)
 	t, _ := c.AddMagnet(magnet)
+	log.Println("Fetching torrent info...")
 	<-t.GotInfo()
 	return c, t
 }
 
-func getTorrentParagraph(t *torrent.Torrent) *widgets.Paragraph {
+// getTorrentDescription generates the torrent info text box contents for the UI.
+func getTorrentDescription(t *torrent.Torrent) *widgets.Paragraph {
 	info := t.Info()
 	out := widgets.NewParagraph()
 	out.Title = "Torrent Info"
@@ -45,6 +49,7 @@ func getTorrentParagraph(t *torrent.Torrent) *widgets.Paragraph {
 	return out
 }
 
+// getTorrentFilesList generates the torrent files table for the UI.
 func getTorrentFilesList(t *torrent.Torrent) *widgets.Table {
 	// TODO: table headers
 	// TODO: better filenames (show extensions)
@@ -60,7 +65,6 @@ func getTorrentFilesList(t *torrent.Torrent) *widgets.Table {
 			fmt.Sprintf("%d ", fi.Length),
 		}
 	}
-
 	out.ColumnResizer = func() {
 		width := out.Inner.Dx()
 		maxNumsWidth := 0
@@ -78,29 +82,52 @@ func getTorrentFilesList(t *torrent.Torrent) *widgets.Table {
 	return out
 }
 
+// getProgressGaugeLabel generates the gauge label for a particular torrent
+// state.
+func getProgressGaugeLabel(t *torrent.Torrent) (int, string) {
+	read := t.Stats().BytesReadUsefulData
+	read64 := read.Int64()
+	floatPercentage := float64(100) * (float64(read64) / float64(t.Length()))
+	s := fmt.Sprintf("Downloaded %d/%d: %f%%", read.Int64(), t.Length(), floatPercentage)
+	return int(floatPercentage), s
+}
+
 func main() {
-	var magnet = sintel
+	var magnet string
 	if len(os.Args) < 2 {
-		fmt.Println("No magnet provided; torrenting Sintel.")
+		magnet = getMagnet()
 	} else {
 		magnet = os.Args[1]
 	}
+	if len(magnet) == 0 {
+		log.Println("No magnet provided. Torrenting Sintel (2010).")
+		magnet = sintelMagnet
+	}
+
+	// TODO: load placeholder UI.
+	cli, tor := prepTorrent(magnet)
+	defer cli.Close()
 
 	if err := ui.Init(); err != nil {
 		log.Fatalf("failed to initialize termui: %v", err)
 	}
 	defer ui.Close()
 
-	// TODO: load placeholder UI.
-	cli, tor := prepTorrent(magnet)
-	defer cli.Close()
+	// Add torrent description and files list.
+	textRow := ui.NewRow(0.25,
+		ui.NewCol(0.5, getTorrentDescription(tor)),
+		ui.NewCol(0.5, getTorrentFilesList(tor)),
+	)
 
-	textRow := ui.NewRow(0.25, ui.NewCol(0.5, getTorrentParagraph(tor)), ui.NewCol(0.5, getTorrentFilesList(tor)))
-
+	// Add progress gauge.
 	g := widgets.NewGauge()
 	g.Percent = 0
 	gaugeRow := ui.NewRow(0.25, g)
+	updateGauge := func() {
+		g.Percent, g.Label = getProgressGaugeLabel(tor)
+	}
 
+	// Add download speed plot.
 	p1 := widgets.NewPlot()
 	p1.Title = "Download Speed"
 	p1.Marker = widgets.MarkerDot
@@ -112,21 +139,15 @@ func main() {
 	p1.LineColors[0] = ui.ColorYellow
 	p1.DrawDirection = widgets.DrawRight
 	statsRow := ui.NewRow(0.5, p1)
-
-	pd := &progressDelta{
+	pd := &progressTracker{
 		fromMoment:   time.Now(),
 		fromProgress: int64(0),
 	}
-
-	updateGauge := func() {
-		g.Percent, g.Label = getStatsString(tor)
-	}
-
 	updatePlot := func() {
 		read := tor.Stats().BytesReadUsefulData
 		read64 := read.Int64()
-		appendToPlot(p1, 0, math.RoundToEven(pd.getUpdate(read64)/1000))
-		appendToPlot(p1, 1, func(ns []float64) float64 {
+		rotateIntoPlot(p1, 0, math.RoundToEven(pd.getSpeedUpdate(read64)/1000))
+		rotateIntoPlot(p1, 1, func(ns []float64) float64 {
 			s := float64(0)
 			for _, n := range ns {
 				s += n
@@ -177,20 +198,16 @@ func main() {
 	}
 }
 
-func getStatsString(t *torrent.Torrent) (int, string) {
-	read := t.Stats().BytesReadUsefulData
-	read64 := read.Int64()
-	floatPercentage := float64(100) * (float64(read64) / float64(t.Length()))
-	s := fmt.Sprintf("Downloaded %d/%d: %f%%", read.Int64(), t.Length(), floatPercentage)
-	return int(floatPercentage), s
-}
-
-type progressDelta struct {
+// A progressTracker is a torrent download state; it records the last-processed
+// moment and the progress at that moment.
+type progressTracker struct {
 	fromMoment   time.Time
 	fromProgress int64
 }
 
-func (pd *progressDelta) getUpdate(newProgress int64) float64 {
+// getSpeedUpdate processes progress since PD was last updated, updates PD, and
+// returns the updated download speed.
+func (pd *progressTracker) getSpeedUpdate(newProgress int64) float64 {
 	// Return bytes per second for last period.
 	lastFromMoment := pd.fromMoment
 	pd.fromMoment = time.Now()
@@ -200,7 +217,10 @@ func (pd *progressDelta) getUpdate(newProgress int64) float64 {
 	return float64(newProgress-lastFromProgress) / elapsedSeconds
 }
 
-func appendToPlot(plt *widgets.Plot, si int, datum float64) {
+// rotateIntoPlot appends the datum to the SIth series in the plot, and rotates
+// previous values out of the plot if the resulting series length is longer than
+// the plot width.
+func rotateIntoPlot(plt *widgets.Plot, si int, datum float64) {
 	plt.Data[si] = append(plt.Data[si], datum)
 	newLen := len(plt.Data[si])
 	if len(plt.Data[si]) > plt.Inner.Dx()-5 {
