@@ -1,6 +1,6 @@
 # qt
 
-`qt` is a simple command-line torrent client:
+`qt` is a simple command-line torrent client. It can't show you ads.
 
 <img width="643" alt="Screenshot of qt torrenting Sintel" src="https://user-images.githubusercontent.com/4955943/55372727-96f68f00-54b7-11e9-97fe-d871bffca409.png">
 
@@ -9,17 +9,19 @@
 ### Prerequisites
 
 + The Go Programming Language. See: [Getting Started](https://golang.org/doc/install).
-+
++ This project's source code.
+  + **Recommended:** run `go get github.com/lukasschwab/qt`
+  + Alternatively, clone this repository.
 
 ### Build `qt`
 
-**Recommended:** in the project directory, run:
+**Recommended:** in the project directory, run the following command.
 
 ```sh
 $ make install
 ```
 
-To build the binary in the project directory instead of in your `$GOPATH/bin`, you can use the following command. In this case, you may want to move the resulting `qt` executable into your shell path so you can run it as `qt`.
+*Alternatively,* to build the binary in the project directory instead of in your `$GOPATH/bin`, you can use the following command. In this case, you may want to move the resulting `qt` executable into your shell path so you can run it as `qt`.
 
 ```sh
 $ make build
@@ -27,7 +29,7 @@ $ make build
 
 ## Usage
 
-To download a torrent, run the `qt` executable from the project directory:
+To download a torrent, run the `qt` executable:
 
 ```sh
 $ # In the project directory, run:
