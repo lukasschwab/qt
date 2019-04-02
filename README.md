@@ -8,7 +8,7 @@
 
 ### Prerequisites
 
-+ The Go Programming Language. See: [Getting Started](https://golang.org/doc/install).
++ The Go Programming Language. See [https://golang.org/doc/install](https://golang.org/doc/install).
 + This project's source code.
   + **Recommended:** run `go get github.com/lukasschwab/qt`
   + Alternatively, clone this repository.
