@@ -34,7 +34,7 @@ func getMagnet() string {
 // info.
 func prepTorrent(magnet string) (*torrent.Client, *torrent.Torrent) {
 	// TODO: handle these errors. Incl. bad magnet link.
-	c, _ := torrent.NewClient(nil)
+	c, _ := torrent.NewClient(&torrent.ClientConfig{Debug: false})
 	t, _ := c.AddMagnet(magnet)
 	log.Println("Fetching torrent info...")
 	<-t.GotInfo()
