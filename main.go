@@ -6,6 +6,7 @@ import (
 	"log"
 	"math"
 	"os"
+  "strings"
 	"time"
 
 	alog "github.com/anacrolix/log"
@@ -109,27 +110,13 @@ func getTorrentFilesList(t *torrent.Torrent) *widgets.Table {
 	out := widgets.NewTable()
 	out.Title = "Files"
 	out.RowSeparator = false
-	out.TextAlignment = ui.AlignRight
+	out.TextAlignment = ui.AlignLeft
 	files := t.Info().Files
 	out.Rows = make([][]string, len(files))
 	for i, fi := range files {
 		out.Rows[i] = []string{
-			fmt.Sprintf("%v ", fi.Path),
+			fmt.Sprintf("%s ", strings.Join(fi.Path, "/")),
 			fmt.Sprintf("%s ", byteLengthToString(fi.Length)),
-		}
-	}
-	out.ColumnResizer = func() {
-		width := out.Inner.Dx()
-		maxNumsWidth := 0
-		for _, row := range out.Rows {
-			numLen := len(row[1])
-			if numLen > maxNumsWidth {
-				maxNumsWidth = numLen
-			}
-		}
-		out.ColumnWidths = []int{
-			width - maxNumsWidth - 1, // Make space for the divider.
-			maxNumsWidth,
 		}
 	}
 	return out
