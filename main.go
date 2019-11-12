@@ -78,7 +78,7 @@ func getTorrentDescription(t *torrent.Torrent) *widgets.Paragraph {
 	info := t.Info()
 	out := widgets.NewParagraph()
 	out.Title = "Torrent Info"
-	out.Text = fmt.Sprintf("Torrent name: %v\nLength: %d ", info.Name, info.Length)
+	out.Text = fmt.Sprintf("Torrent name: %v\nLength: %d ", info.Name, t.Length())
 	return out
 }
 
@@ -120,7 +120,7 @@ func getProgressGaugeLabel(t *torrent.Torrent) (int, string) {
 	read := t.Stats().BytesReadUsefulData
 	read64 := read.Int64()
 	floatPercentage := float64(100) * (float64(read64) / float64(t.Length()))
-	s := fmt.Sprintf("Downloaded %d/%d: %f%%",
+	s := fmt.Sprintf("Downloaded %d/%d: %.1f%%",
 		read.Int64(),
 		t.Length(),
 		floatPercentage,
