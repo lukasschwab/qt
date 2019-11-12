@@ -54,6 +54,23 @@ func prepTorrent(magnet string) (*torrent.Client, *torrent.Torrent) {
 
 /* UI CONTENT GENERATORS & UPDATERS */
 
+// byteLengthToString returns a human-readable version of a byte length; it
+// converts to kB, MB, GB.
+func byteLengthToString(length int64) string {
+	kB := float64(1000)
+	MB := float64(math.Pow(float64(1000), float64(2)))
+	GB := float64(math.Pow(float64(1000), float64(3)))
+	flength := float64(length)
+	if flength > 10*GB {
+		return fmt.Sprintf("%.2f GB", flength/GB)
+	} else if flength > 10*MB {
+		return fmt.Sprintf("%.2f MB", flength/MB)
+	} else if flength > 10*kB {
+		return fmt.Sprintf("%.2f kB", flength/kB)
+	}
+	return fmt.Sprintf("%d B", length)
+}
+
 // A progressTracker is a torrent download state; it records the last-processed
 // moment and the progress at that moment.
 type progressTracker struct {
@@ -78,7 +95,11 @@ func getTorrentDescription(t *torrent.Torrent) *widgets.Paragraph {
 	info := t.Info()
 	out := widgets.NewParagraph()
 	out.Title = "Torrent Info"
-	out.Text = fmt.Sprintf("Torrent name: %v\nLength: %d ", info.Name, t.Length())
+	out.Text = fmt.Sprintf(
+		"Torrent name: %v\nLength: %s",
+		info.Name,
+		byteLengthToString(t.Length()),
+	)
 	return out
 }
 
@@ -94,7 +115,7 @@ func getTorrentFilesList(t *torrent.Torrent) *widgets.Table {
 	for i, fi := range files {
 		out.Rows[i] = []string{
 			fmt.Sprintf("%v ", fi.Path),
-			fmt.Sprintf("%d ", fi.Length),
+			fmt.Sprintf("%s ", byteLengthToString(fi.Length)),
 		}
 	}
 	out.ColumnResizer = func() {
@@ -120,9 +141,9 @@ func getProgressGaugeLabel(t *torrent.Torrent) (int, string) {
 	read := t.Stats().BytesReadUsefulData
 	read64 := read.Int64()
 	floatPercentage := float64(100) * (float64(read64) / float64(t.Length()))
-	s := fmt.Sprintf("Downloaded %d/%d: %.1f%%",
-		read.Int64(),
-		t.Length(),
+	s := fmt.Sprintf("↓%s of %s: %.1f%%",
+		byteLengthToString(read.Int64()),
+		byteLengthToString(t.Length()),
 		floatPercentage,
 	)
 	return int(floatPercentage), s
@@ -181,8 +202,8 @@ func main() {
 	progplot.Title = "Download Speed"
 	progplot.Marker = widgets.MarkerBraille
 	progplot.Data = [][]float64{
-		[]float64{0,0}, // Last observed download speed datum.
-		[]float64{0,0}, // Average download speed from last period.
+		[]float64{0, 0}, // Last observed download speed datum.
+		[]float64{0, 0}, // Average download speed from last period.
 	}
 	progplot.AxesColor = ui.ColorWhite
 	progplot.LineColors[0] = ui.ColorYellow
