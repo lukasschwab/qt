@@ -8,9 +8,10 @@ import (
 	"os"
 	"time"
 
+	alog "github.com/anacrolix/log"
 	"github.com/anacrolix/torrent"
-	ui "github.com/gizak/termui"
-	"github.com/gizak/termui/widgets"
+	ui "github.com/gizak/termui/v3"
+	"github.com/gizak/termui/v3/widgets"
 )
 
 /* CONSTS */
@@ -33,9 +34,19 @@ func getMagnet() string {
 // prepTorrent creates a torrent client and synchronously fetches the torrent
 // info.
 func prepTorrent(magnet string) (*torrent.Client, *torrent.Torrent) {
-	// TODO: handle these errors. Incl. bad magnet link.
-	c, _ := torrent.NewClient(&torrent.ClientConfig{Debug: false})
-	t, _ := c.AddMagnet(magnet)
+	log.Println("Configuring torrent client...")
+	cfg := torrent.NewDefaultClientConfig()
+	cfg.Debug = false
+	cfg.Logger = alog.Discard
+	c, err := torrent.NewClient(cfg)
+	if err != nil {
+		log.Panic(err)
+	}
+	log.Println("Processing magnet...")
+	t, err := c.AddMagnet(magnet)
+	if err != nil {
+		log.Panic(err)
+	}
 	log.Println("Fetching torrent info...")
 	<-t.GotInfo()
 	return c, t
@@ -168,10 +179,10 @@ func main() {
 	// Add download speed plot.
 	progplot := widgets.NewPlot()
 	progplot.Title = "Download Speed"
-	progplot.Marker = widgets.MarkerDot
+	progplot.Marker = widgets.MarkerBraille
 	progplot.Data = [][]float64{
-		[]float64{0}, // Last observed download speed datum.
-		[]float64{0}, // Average download speed from last period.
+		[]float64{0,0}, // Last observed download speed datum.
+		[]float64{0,0}, // Average download speed from last period.
 	}
 	progplot.AxesColor = ui.ColorWhite
 	progplot.LineColors[0] = ui.ColorYellow
