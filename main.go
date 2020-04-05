@@ -205,8 +205,9 @@ func main() {
 	}
 	updatePlot := func() { // TODO: refactor out updaters.
 		read := tor.Stats().BytesReadUsefulData
-		read64 := read.Int64()
-		// Convert to kB.
+    // Convert to updates per second.
+		read64 := read.Int64() * updatesPerSecond
+		// Convert to kB for graph.
 		rotateIntoPlot(progplot, 0, math.RoundToEven(pd.getSpeedUpdate(read64)/1000))
 		rotateIntoPlot(progplot, 1, func(ns []float64) float64 {
 			s := float64(0)
@@ -219,7 +220,7 @@ func main() {
 		progplot.Title = fmt.Sprintf(
 			"Download Speed: %v • ETA: %v",
 			// Convert to bytes per second.
-			byteLengthToString(lastRate*1000*updatesPerSecond)+"/s",
+			byteLengthToString(lastRate*1000)+"/s",
 			func() string {
 				if lastRate == 0 {
 					return "∞"
