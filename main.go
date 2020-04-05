@@ -6,7 +6,7 @@ import (
 	"log"
 	"math"
 	"os"
-  "strings"
+	"strings"
 	"time"
 
 	alog "github.com/anacrolix/log"
@@ -18,7 +18,8 @@ import (
 /* CONSTS */
 
 // A quantum is the duration between UI progress updates.
-const quantum = time.Second / 3
+const updatesPerSecond = 3
+const quantum = time.Second / updatesPerSecond
 
 /* TORRENT UTILS */
 
@@ -184,7 +185,9 @@ func main() {
 		g.Percent, g.Label = getProgressGaugeLabel(tor)
 	}
 
-	// Add download speed plot.
+	// TODO: make a custom progplot object with named references to its data that
+	// extends whatever termui.Plot object this uses.
+	// Add download speed plot
 	progplot := widgets.NewPlot()
 	progplot.Title = "Download Speed"
 	progplot.Marker = widgets.MarkerBraille
@@ -203,6 +206,7 @@ func main() {
 	updatePlot := func() { // TODO: refactor out updaters.
 		read := tor.Stats().BytesReadUsefulData
 		read64 := read.Int64()
+		// Convert to kB.
 		rotateIntoPlot(progplot, 0, math.RoundToEven(pd.getSpeedUpdate(read64)/1000))
 		rotateIntoPlot(progplot, 1, func(ns []float64) float64 {
 			s := float64(0)
@@ -211,16 +215,21 @@ func main() {
 			}
 			return math.RoundToEven(float64(s) / float64(len(ns)))
 		}(progplot.Data[0]))
-		progplot.Title = fmt.Sprintf("Download Speed • ETA: %v", func() string {
-			toRead := tor.Length() - read64
-			lastRate := int64(progplot.Data[1][len(progplot.Data[1])-1])
-			if lastRate == 0 {
-				return "∞"
-			}
-			quantaRemaining := toRead / (lastRate * 1000)
-			timeRemaining := time.Duration(quantum.Nanoseconds() * quantaRemaining)
-			return timeRemaining.Round(time.Second).String()
-		}())
+		lastRate := int64(progplot.Data[1][len(progplot.Data[1])-1])
+		progplot.Title = fmt.Sprintf(
+			"Download Speed: %v • ETA: %v",
+			// Convert to bytes per second.
+			byteLengthToString(lastRate*1000*updatesPerSecond)+"/s",
+			func() string {
+				if lastRate == 0 {
+					return "∞"
+				}
+				toRead := tor.Length() - read64
+				quantaRemaining := toRead / (lastRate * 1000)
+				timeRemaining := time.Duration(quantum.Nanoseconds() * quantaRemaining)
+				return timeRemaining.Round(time.Second).String()
+			}(),
+		)
 	}
 
 	grid := ui.NewGrid()
